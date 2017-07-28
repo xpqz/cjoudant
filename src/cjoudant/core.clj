@@ -4,9 +4,9 @@
 
 (defn session
   [base-url username password]
-   {:base-url base-url
-    :username username
-    :password password})
+  {:base-url base-url
+   :username username
+   :password password})
 
 (defn database
   [session db-name]
@@ -18,7 +18,7 @@
 
 (defn- endpoint
   [session path-str]
-  (endpoint-vec session [path-str])
+  (endpoint-vec session [path-str]))
 
 (defn- auth
   [session]
@@ -86,7 +86,12 @@
    (req session :get "_changes" nil nil))
 
   ([session opts]
-   (req session :get "_changes" options nil)))
+   (req session :get "_changes" opts nil)))
+
+(defn design-docs
+  [session]
+  (let [response (all-docs session {:startkey "_design/", :endkey "_design0"})]
+    (:rows response)))
 
 (defn view-query
   "https://console.bluemix.net/docs/services/session/api/using_views.html#using-views"
@@ -98,4 +103,3 @@
     (if keys
       (req session :post url (dissoc options :keys) {:keys [(:keys options)]})
       (req session :get url options nil))))
-
