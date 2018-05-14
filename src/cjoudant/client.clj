@@ -1,4 +1,4 @@
-;; To reload in the repl: (use 'cjoudant.core :reload)
+;; To reload in the repl: (use 'cjoudant.client :reload)
 ;
 ; (def client (session "https://USER.cloudant.com" "USER" "PASSWORD"))
 ; (def db (database client "db-name"))
@@ -10,7 +10,7 @@
 ; (all-docs db)
 
 
-(ns cjoudant.core
+(ns cjoudant.client
   (:require [org.httpkit.client :as http])
   (:require [cheshire.core :as json])
   (:require [clojure.java.io :as io]))
@@ -25,19 +25,24 @@
 
 (defn- request-params
   [session method url query-params body]
-  (let [shared-params {:url url, :method method}]
-    (merge-with into shared-params (when body {:headers {"content-type" "application/json"},
-                                               :body (json/generate-string body)})
-                                    (when query-params {:query-params query-params}))))
+  (let [shared-params {:url url, :method method} headers (:headers session)]
+    (merge-with into shared-params
+      (when body {:headers {"content-type" "application/json"}, :body (json/generate-string body)})
+      (when query-params {:query-params query-params})
+      (when headers {:headers headers}))))
 
 (defn req-future
   [session method url query-params body]
-  (http/request (request-params session method url query-params body)))
+  (let [data (request-params session method url query-params body)]
+    (http/request data)))
 
 (defn req
-  [session method url query-params body]
-  (let [response @(req-future session method url query-params body)]
-    (json/parse-string (:body response))))
+  [session method url & {:keys [query-params body] :or {query-params nil body nil}}]
+  (let [{:keys [status headers body error] :as response} @(req-future session method url query-params body)]
+    (when error (throw error))
+    (if (contains? #{201 200} status)
+      (json/parse-string body)
+      (throw (Throwable. body)))))
 
 (defn new-cookie
   [session]
@@ -48,7 +53,7 @@
 (defn session
   [base-url username password & {:keys [database] :or {database ""}}]
   (let [details {:base-url base-url, :username username, :password password}]
-    {:base-url base-url, :database database, :headers {:cookie (new-cookie details)}}))
+    {:base-url base-url, :database database, :headers {"Cookie" (new-cookie details)}}))
 
 (defn database
   [session db-name]
@@ -56,17 +61,23 @@
 
 (defn create-database
   [session db-name]
-  (req session :put db-name nil nil))
+  (let [url (endpoint session [db-name])]
+    (req session :put url)))
+
+(defn delete-database
+  [session db-name]
+  (let [url (endpoint session [db-name])]
+    (req session :delete url)))
 
 (defn- bulk-docs
   [session docs & opts]
   (let [url (db-endpoint session ["_bulk_docs"])]
-    (req session :post url opts {:docs docs})))
+    (req session :post url :query-params opts :body {:docs docs})))
 
 (defn read-doc
   [session doc-id & opts]
   (let [url (db-endpoint session [doc-id])]
-    (req session :get url opts nil)))
+    (req session :get url :query-params opts)))
 
 (defn update-doc
   [session doc-id rev-id body]
@@ -95,8 +106,8 @@
                 startkey_docid update-seq] :as options} opts]
     ; If given a list of keys, do a POST, otherwise a GET
     (if keys
-      (req session :post url (dissoc options :keys) {:keys [(:keys options)]} nil)
-      (req session :get url options nil))))
+      (req session :post url :query-params (dissoc options :keys) :body {:keys [(:keys options)]})
+      (req session :get url :query-params options))))
 
 (defn view-query
   "https://console.bluemix.net/docs/services/session/api/using_views.html#using-views"
@@ -106,5 +117,5 @@
                 startkey_docid update] :as options} opts
         url (db-endpoint session ["_design" ddoc "_views" view-name])]
     (if keys
-      (req session :post url (dissoc options :keys) {:keys [(:keys options)]} nil)
-      (req session :get url options nil))))
+      (req session :post url :query-params (dissoc options :keys) :body {:keys [(:keys options)]})
+      (req session :get url :query-params options))))
