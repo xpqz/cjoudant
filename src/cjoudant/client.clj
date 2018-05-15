@@ -39,10 +39,10 @@
 (defn req
   [session method url & {:keys [query-params body] :or {query-params nil body nil}}]
   (let [{:keys [status headers body error] :as response} @(req-future session method url query-params body)]
-    (when error (throw error))
+    (when error (throw (ex-info {:status status :error error})))
     (if (contains? #{201 200} status)
       (json/parse-string body)
-      (throw (Throwable. body)))))
+      (throw (ex-info "Bad status" {:status status :info body})))))
 
 (defn new-cookie
   [session]
@@ -75,19 +75,30 @@
     (req session :post url :query-params opts :body {:docs docs})))
 
 (defn read-doc
-  [session doc-id & opts]
-  (let [url (db-endpoint session [doc-id])]
-    (req session :get url :query-params opts)))
+  ([session doc-id]
+    (let [url (db-endpoint session [doc-id])]
+      (req session :get url)))
+
+  ([session doc-id opts]
+    (let [url (db-endpoint session [doc-id])]
+      (req session :get url :query-params opts))))
+
 
 (defn update-doc
   [session doc-id rev-id body]
-  (let [r (bulk-docs session [(merge body {:_id doc-id, :_rev rev-id})])]
-    (first r)))
+  (let [response (bulk-docs session [(merge body {:_id doc-id, :_rev rev-id})])
+        item (first response)]
+    (if (contains? item "error")
+      (throw (ex-info "Update error" {:error (:error item) :reason (:reason item)}))
+      item)))
 
 (defn insert-doc
   [session body]
-  (let [r (bulk-docs session [body])]
-    (first r)))
+  (let [response (bulk-docs session [body])
+        item (first response)]
+    (if (contains? item "error")
+      (throw (ex-info "Insert error" {:error (:error item) :reason (:reason item)}))
+      item)))
 
 (defn insert-docs
   [session docs]
@@ -95,8 +106,11 @@
 
 (defn delete-doc
   [session doc-id rev-id]
-  (let [r (bulk-docs session [{:_id doc-id, :_rev rev-id, :deleted true}])]
-    (first r)))
+  (let [response (bulk-docs session [{:_id doc-id, :_rev rev-id, :_deleted true}])
+        item (first response)]
+    (if (contains? item "error")
+      (throw (ex-info "Delete error" {:error (:error item) :reason (:reason item)}))
+      item)))
 
 (defn all-docs
   [session & opts]
