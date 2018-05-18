@@ -4,7 +4,7 @@ A gossamer-thin veneer over the CouchDB HTTP API.
 
 ## Installation
 
-Download from http://example.com/FIXME.
+Download from https://clojars.org/cjoudant
 
 ## Examples
 
