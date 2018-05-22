@@ -129,7 +129,7 @@
   (let [{:keys [conflicts descending endkey endkey_docid include_docs inclusive_end
                 key keys limit group group_level reduce stable skip stale start_key
                 startkey_docid update] :as options} opts
-        url (db-endpoint session ["_design" ddoc "_views" view-name])]
+        url (db-endpoint session ["_design" ddoc "_view" view-name])]
     (if keys
       (req session :post url :query-params (dissoc options :keys) :body {:keys [(:keys options)]})
       (req session :get url :query-params options))))
