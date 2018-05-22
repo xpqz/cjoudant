@@ -42,7 +42,7 @@
     (when error (throw (ex-info {:status status :error error})))
     (if (contains? #{201 200} status)
       (json/parse-string body)
-      (throw (ex-info "Bad status" {:status status :info body})))))
+      (throw (ex-info "Bad status" {:status status :info body :url url})))))
 
 (defn new-cookie
   [session]
