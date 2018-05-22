@@ -38,7 +38,6 @@
 
 (defn req
   [session method url & {:keys [query-params body] :or {query-params nil body nil}}]
-  (println body)
   (let [{:keys [status headers body error] :as response} @(req-future session method url query-params body)]
     (when error (throw (ex-info {:status status :error error})))
     (if (contains? #{201 200} status)
