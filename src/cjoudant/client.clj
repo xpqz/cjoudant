@@ -38,6 +38,7 @@
 
 (defn req
   [session method url & {:keys [query-params body] :or {query-params nil body nil}}]
+  (println body)
   (let [{:keys [status headers body error] :as response} @(req-future session method url query-params body)]
     (when error (throw (ex-info {:status status :error error})))
     (if (contains? #{201 200} status)
@@ -120,16 +121,15 @@
                 startkey_docid update-seq] :as options} opts]
     ; If given a list of keys, do a POST, otherwise a GET
     (if keys
-      (req session :post url :query-params (dissoc options :keys) :body {:keys [(:keys options)]})
+      (req session :post url :query-params (dissoc options :keys) :body {:keys (:keys options)})
       (req session :get url :query-params options))))
 
 (defn view-query
-  "https://console.bluemix.net/docs/services/session/api/using_views.html#using-views"
   [session ddoc view-name opts]
   (let [{:keys [conflicts descending endkey endkey_docid include_docs inclusive_end
                 key keys limit group group_level reduce stable skip stale start_key
                 startkey_docid update] :as options} opts
         url (db-endpoint session ["_design" ddoc "_view" view-name])]
     (if keys
-      (req session :post url :query-params (dissoc options :keys) :body {:keys [(:keys options)]})
+      (req session :post url :query-params (dissoc options :keys) :body {:keys (:keys options)})
       (req session :get url :query-params options))))
