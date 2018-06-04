@@ -135,5 +135,5 @@
 
 (defn mango-query
   [session query query-params]
-  (let [url (db-endpoint session "_find")]
+  (let [url (db-endpoint session ["_find"])]
     (req session :post url :query-params query-params :body query)))
